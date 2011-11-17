@@ -1,52 +1,61 @@
 class Gadget:
 
     def __init__(self):
-        self.instruction = []
-        self.definition = ''
-        self.tail=False
+        self.instructions = []
+        self.dest = []
+        self.source = []
 
-    ''' Adds an instruction to the gadget chain.
-        If an instruction is a tail, set gadget_tail=instruction if length > 1
-        else None saying that gadget is meaningless!'''
+        accepted_instr = ['RET','MOV','CALL','POP','PUSH', 'SUB', 'ADD', 
+                          'INC', 'DEC', 'INT', 'XOR', 'CDQ', 'XCHG' ]
+
+        tails = ['RET','CALL', 'JMP']
+        
+        registers = ['EAX', 'AX', 'AL', 'AH', 'EBX', 'BX', 'BL', 'BH', 'ECX', 
+                     'EDX', 'EDI', 'ESI', 'EIP', 'ESP', 'EBP']
+
+
+
+    ''' Is an instruction is accepted in gadgets '''
+    def accepted_instruction(self,instruction):
+        accepted_instr = ['RET','MOV' ,'POP','PUSH', 'SUB', 'ADD', 
+                          'INC', 'DEC', 'INT', 'XOR', 'CDQ', 'XCHG', 'NEG' ]
+        return instruction.type in accepted_instr
+       
 
     def add(self, instruction): 
-        accepted_instr = ['RET','MOV','CALL','POP','DB', 'PUSH', 'SUB', 'ADD', 
-                          'INC', 'DEC' ]
-        tails = ['RET','CALL']
+        self.instructions.append(instruction)        
 
-        registers = ['EAX', 'AX', 'AL', 'AH', 'EBX', 'BX', 'BL', 'BH', 'ECX', 'EDX', 'EDI', 'ESI', 'EIP', 'ESP', 
-                     'EBP']
+    ''' Check that gadget is good '''
+    def check(self):
+        
+        if len(self.instructions) > 0 and not self.bad_offset() and\
+            (self.instructions[-1].type=='RET' and self.instructions[-1].dest==None):
+            for i in self.instructions[:-1]:
+                if i.type=='RET':
+                    return False;
 
-        if instruction.type in accepted_instr:            
-            self.instruction.append(instruction)
+            return True
 
-            if instruction.type in tails:
-                if len(self.instruction)>1 or (len(self.instruction)==1 and
-                                               self.instruction[0].type=="CALL" and
-                                               self.instruction[0].dest in registers):
-                    
+        return False
 
-                    if len(self.instruction)==2 and self.instruction[0].type=='LEAVE':
-                        self.tail=None
-                    else:
-                        if instruction.type=='CALL':
-                            if instruction.dest in registers:
-                                self.tail=instruction
-                            else:
-                                self.tail=None
-                        else:
-                            self.tail=instruction
-                        
-                else:
-                    self.tail=None
-        else:
-            self.tail=None
-    
+
+    ''' Output contents of a gadget '''
     def output(self):
-        if len(self.instruction)>0:
-            output = "0x%.8x \t|" % ( self.instruction[0].offset + 0x08048000 )
-            for ins in self.instruction:
-                output = "{0} {1} #".format(output, ins.comment)
+        if len(self.instructions)>0:
+            output = "0x%.8x \t;" % ( self.instructions[0].offset + 0x08048000 )
+            for ins in self.instructions:
+                output = "{0} {1} #".format(output, ins.instruction)
             return output
-        else:
-            return ""
+
+    def bad_offset(self):
+        memory = "0x%.8x" % ( self.instructions[0].offset + 0x08048000 )
+        bad = ['09','0a']
+        if self.instructions[0].offset + 0x08048000 > 0x080c4ccc:
+            return True  
+      
+        for b in bad:
+            if b in memory:
+                return True
+
+        return False
+        

@@ -1,7 +1,7 @@
 import distorm3
 import sys
 import optparse
-from gadgetcollector import *
+from lib import gadgetcollector
 
 # Parse the command line arguments
 usage  = 'Usage: %prog [--b16 | --b32 | --b64] filename [offset] [memory offset]'
@@ -30,7 +30,7 @@ if len(args) == 3:
 elif len(args) > 3:
     parser.error('too many parameters')
 
-gadgets = GadgetCollector(filename)
+gadgets = gadgetcollector.GadgetCollector(filename)
 
-gadgets.findGadgets(offset, options.dt)
+gadgets.extractGadgets(offset, options.dt)
 
