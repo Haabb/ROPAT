@@ -63,33 +63,29 @@ class GadgetCollector:
             test_reg = 'ECX'
 
             #=================================
+            #          add and sub test
+            #================================= 
+            for (imme, g) in assembler.sub(test_reg):
+                print "-",imme
+
+            for (imme, g) in assembler.add(test_reg):
+                print "+",imme
+
+            #=================================
             #           null test
             #=================================            
-            print assembler.null(test_reg)
-            #print assembler.catalog['XOR'].keys()
+            assembler.null(test_reg)
 
             #=================================
-            #    moveTo and moveToFrom test
+            #         movesTo test
             #=================================
             print assembler.movesTo(test_reg)
-            '''for reg in assembler.movesTo(test_reg):
-                p_len = 999
-                p = None
-                for path in assembler.moveToFrom(test_reg, reg):
-                    if len(path) < p_len:
-                        p=path
-                        p_len=len(path)
 
-                print "\{0} TO {1}:\n".format(reg, test_reg)
-                if p!=None:
-                    for move in p:
-                        g_len=999
-                        g=None
-                        for gadget in move:
-                            if len(gadget.instructions)<g_len:
-                                g=gadget
-                                g_len=len(gadget.instructions)
-                        print g'''
+            #=================================
+            #         store test
+            #=================================
+            #for x in assembler.store(test_reg, '/bin//sh', '0xbffff0ff'):
+            #    print x
 
 
                     
