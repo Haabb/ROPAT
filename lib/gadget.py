@@ -27,12 +27,16 @@ class Gadget:
 
     ''' Check that gadget is good '''
     def check(self):
-        
         if len(self.instructions) > 0 and not self.bad_offset() and\
             (self.instructions[-1].type=='RET' and self.instructions[-1].dest==None):
             for i in self.instructions[:-1]:
                 if i.type=='RET':
                     return False;
+
+            # Check that instructions in gadget does not interfere with first
+            for i in self.instructions[1:]:
+                if i.dest==self.instructions[0].dest:
+                    return False
 
             return True
 
@@ -42,15 +46,15 @@ class Gadget:
     ''' Output contents of a gadget '''
     def output(self):
         if len(self.instructions)>0:
-            output = "0x%.8x \t;" % ( self.instructions[0].offset + 0x08048000 )
+            output = "\ndd 0x%.8x \t;" % ( self.instructions[0].offset )
             for ins in self.instructions:
                 output = "{0} {1} #".format(output, ins.instruction)
             return output
 
     def bad_offset(self):
-        memory = "0x%.8x" % ( self.instructions[0].offset + 0x08048000 )
+        memory = "0x%.8x" % ( self.instructions[0].offset )
         bad = ['09','0a']
-        if self.instructions[0].offset + 0x08048000 > 0x080c4ccc:
+        if self.instructions[0].offset > 0x080c4ccc:
             return True  
       
         for b in bad:
@@ -58,4 +62,7 @@ class Gadget:
                 return True
 
         return False
-        
+    def __repr__(self):
+         return self.output()
+    def __str__(self):
+         return self.output()

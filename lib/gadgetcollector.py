@@ -1,7 +1,6 @@
 import distorm3
 from gadget import *
 from instruction import *
-from dataflow import *
 from struct import *
 from assembler import *
 
@@ -17,7 +16,7 @@ class GadgetCollector:
     ''' 
     def extractGadgets(self, gadget_length, options):
         # Read the code from the file
-        try:
+        #try:
             fp = open(self.file, 'rb')
             code = fp.read(1)
             code_offset = 0
@@ -60,9 +59,40 @@ class GadgetCollector:
                 code = fp.read(1) 
 
             assembler = Assembler(self.gadgets)
-            #print assembler.store('ECX', 'Some data')
-            for g in assembler.store('EDX', 'Some data', '0xbffff0ff'):
-                print g
+            
+            test_reg = 'ECX'
 
-        except Exception as e:
-            print ('error reading file %s: %s' % (self.file, e))
+            #=================================
+            #           null test
+            #=================================            
+            print assembler.null(test_reg)
+            #print assembler.catalog['XOR'].keys()
+
+            #=================================
+            #    moveTo and moveToFrom test
+            #=================================
+            print assembler.movesTo(test_reg)
+            '''for reg in assembler.movesTo(test_reg):
+                p_len = 999
+                p = None
+                for path in assembler.moveToFrom(test_reg, reg):
+                    if len(path) < p_len:
+                        p=path
+                        p_len=len(path)
+
+                print "\{0} TO {1}:\n".format(reg, test_reg)
+                if p!=None:
+                    for move in p:
+                        g_len=999
+                        g=None
+                        for gadget in move:
+                            if len(gadget.instructions)<g_len:
+                                g=gadget
+                                g_len=len(gadget.instructions)
+                        print g'''
+
+
+                    
+
+        #except Exception as e:
+        #    print ('error reading file %s: %s' % (self.file, e))

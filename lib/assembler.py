@@ -1,88 +1,151 @@
+import itertools
+
 class Assembler:
+  
+  def __init__(self, gadgets):
+    self.catalog = {'MOV':{},'POP':{},'SUB':{},'DEC':{},'INC':{},'ADD':{}, 'XOR':{}, 'NEG':{}}
+    self.init_catalog(gadgets)
+    self.registers = ['EAX', 'EBX', 'ECX', 'EDX', 'EDI', 'ESI']
+
+  ''' Find gadgets which combined can store data in memory
+    register = The register you want to point to the memory
+    data = The data you want to store in memory
+    memory = The address where you want to store memory (have to be writeable)
+    sub = If true, the function does NOT look in other registers for store if R does not have a store.
+  '''
+  def store(self, register, data, memory, sub=False):
+    chain = []
+    nextchain = []
+    stack = []
+
+    registers = ['EAX', 'EBX', 'ECX', 'EDX', 'EDI', 'ESI']
+
+    # Does register have a MOV [register]
+    if "[{0}]".format(register) in self.catalog['MOV'].keys():
+
+      for r in self.catalog['MOV']["[{0}]".format(register)].keys():
+        if r in self.catalog['POP'].keys() and register in self.catalog['POP'].keys():
+          chain.append( self.catalog['POP'][register] )
+          chain.append( self.catalog['POP'][r] )
+          chain.append( self.catalog['MOV']["[{0}]".format(register)][r] )
+          break
+
+    # If register has no MOV [register], try using other registers
+    else:
+      if sub==False and register in self.catalog['MOV'].keys():
+          print "Looking in others"
+          for r in self.catalog['MOV'][register].keys():
+            print "Looking in {0}".format(r) 
+            chain = self.store(r, data, memory, True)
     
-    def __init__(self, gadgets):
-        self.gadgets = gadgets
-        self.catalog = {'MOV':{},'POP':{},'PUSH':{},'SUB':{},'DEC':{},'INC':{},'ADD':{}, 'NULL':{}, 'XCHG':{}}
-        #['RET','MOV','CALL','POP','PUSH', 'SUB', 'ADD', 'INC', 'DEC', 'INT', 'XOR', 'CDQ', 'XCHG' ]
+    # If chain could not be found, look in other registers that can move to 
+    '''if not setup and sub==False:
+      for r in self.catalog['MOV'][register].keys():
+        (setup, retrieve, store, nextchain, stack) = store(register, data, memory, True)
+        if chain!=None:
+          break
+    elif setup:'''
+    return chain
 
-    ''' Store looks for gadgets which combined can store data in memory '''
-    def store(self, register, data, memory):
-        chain = []
-        nextchain = []
-        stack = []
+  ''' Traverse self.container to find all registers able to move data from, to "register"
+      args:
+      register: the register to move data to
+
+      return a list of registers, self included '''
+  def movesTo(self, register, chain=[]):
+    chain.append( register )
+    if register in self.catalog['MOV'].keys():
+      for r in self.catalog['MOV'][register].keys():
+        if r in self.registers and not r in chain:
+          chain.extend( self.movesTo( r, chain ) )
+      return list(set(chain))
 
 
-        registers = ['EAX', 'EBX', 'ECX', 'EDX', 'EDI', 'ESI']
-        self.lookup('POP', register)
-        self.lookup('MOV', "[{0}]".format(register))
+  def moveToFrom(self, reg_to, reg_from):
+    chains = []
+    possible_moves = self.movesTo(reg_to)
+    possible_moves.remove(reg_to)
 
-        for r in self.catalog['MOV']["[{0}]".format(register)].keys():
-            self.lookup('POP', r)
-            if r in self.catalog['POP'].keys():
-                setup = self.catalog['POP'][register]['gadget']
-                retrieve = self.catalog['POP'][r]['gadget']
-                store = self.catalog['MOV']["[{0}]".format(register)][r]['gadget']
-                break
-
-        stack.append( setup.output() )
-        stack.append( memory )
+    if len(possible_moves) > 1:
+      for lst in list(itertools.permutations(possible_moves)):
+        chain=[]
         
+        if self.catalog['MOV'][reg_to].has_key(lst[0]):
+          l = [reg_to]
+          l.extend(lst)
+          for i in range(len(l)-1):
 
-        self.lookup('DEC', register)
-        for i in range(4):
-            nextchain.append(self.catalog['DEC'][register]['gadget'])
+            if self.catalog['MOV'][l[i]].has_key(l[i+1]):
+              chain.append( self.catalog['MOV'][l[i]][l[i+1]] )
 
-        while not len(data) % 4==0:
-            data = "{0}A".format(data)
+              if l[i+1]==reg_from:
+                chains.append( list(reversed(chain)) )
+            else:
+              break
 
-        for i in reversed(range(len(data) / 4)):
-            stack.append( retrieve.output() )
-            stack.append( data[(i*4):(i*4)+4] )
-            stack.append( store.output() )
-            if (i > 0):
-                for n in nextchain:
-                    stack.append( n.output() )
+    return chains
+  
+  def null(self, register, sub=False):
+    if self.catalog['XOR'].has_key(register):
+      if self.catalog['XOR'][register].has_key(register):
+        return self.catalog['XOR'][register][register]
 
-
-
-        return stack
-
-
-    ''' Returns the sideeffects of of a gadget '''
-    def sideeffects(self, gadget):
-        registers = []
-        for i in gadget.instructions[1:]:
-            registers.append( ( i.type, i.dest) )
-        return registers
+    elif self.catalog['MOV'].has_key(register) and  \
+         self.catalog['MOV'][register].has_key('0xffffffff') and \
+         self.catalog['NEG'].has_key(register):
+        return self.catalog['MOV'][register]['0xffffffff']
     
-    ''' Looks for at gadget where type register exist '''
-    def lookup(self, type, register):
-        gadgets = []
-        for g in self.gadgets:
-            if g.instructions[0].type==type:
-                if g.instructions[0].dest==register:
-                    gadgets.append(g)
-        
-        if not register in self.catalog[type].keys():
-            self.catalog[type][register] = {}
-        
-        # Types where source is guaranteed
-        if type=='MOV' or type=='SUB' or type=='ADD' or type=='XCHG':
-            for (source, sideeffect, g) in [(g.instructions[0].source, self.sideeffects(g), g) for g in gadgets]:
-                if source in self.catalog[type][register].keys():
-                    if len(self.catalog[type][register][source]['sideeffects']) > len(self.sideeffects(g)):
-                        self.catalog[type][register][source]['gadget'] = g
-                        self.catalog[type][register][source]['sideeffects'] = self.sideeffects(g)
-                    else:
-                        self.catalog[type][register][source]= {'gadget': g, 'sideeffects': self.sideeffects(g)}
-                else:
-                    self.catalog[type][register][source]= {'gadget': g, 'sideeffects': self.sideeffects(g)}
+    # Look if other registers can be moved to register
+    else:
+        if sub==False:
+            others = self.movesTo(register)
+            others.remove(register)
+            if others!=None:
+                for reg in others:
+                    if self.null(reg)!=None:
+                        return self.null(reg, True)
+      
 
-        elif type=='POP' or type=="DEC":
-            for (dest, sideeffect, g) in [(g.instructions[0].dest, self.sideeffects(g), g) for g in gadgets]:
-                if 'gadget' in self.catalog[type][register].keys():
-                    if len(self.catalog[type][register]['sideeffects']) > len(self.sideeffects(g)):
-                        self.catalog[type][register]['sideeffects'] = self.sideeffects(g)
-                        self.catalog[type][register]['gadget'] = g
-                else:
-                    self.catalog[type][register] = {'gadget':g,'sideeffects': self.sideeffects(g)}
+
+  ''' Returns the sideeffects of of a gadget '''
+  def sideeffects(self, gadget):
+    registers = []
+    for i in gadget.instructions[1:]:
+      registers.append( ( i.type, i.dest) )
+    return registers
+ 
+  ''' Put all gadgets in catalog '''
+  def init_catalog(self, gadgets):
+
+    for g in gadgets:
+      i = g.instructions[0]
+
+      # Quaranteed dest and source types
+      if i.type=='MOV' or i.type=='SUB' or i.type=='ADD' or i.type=='XOR':
+        if i.dest in self.catalog[i.type].keys():
+
+          if i.source in self.catalog[i.type][i.dest].keys():
+            self.catalog[i.type][i.dest][i.source].append(g)
+
+          else:
+            self.catalog[i.type][i.dest][i.source] = [g]
+
+        else:
+          self.catalog[i.type][i.dest] = {i.source: [g]}
+
+      
+      if i.type=='INC' or i.type=='DEC' or i.type=='POP' or i.type=='NEG':
+
+        if i.dest in self.catalog[i.type].keys():
+            self.catalog[i.type][i.dest].append(g)
+
+        else:
+          self.catalog[i.type][i.dest] = [g]
+
+  ''' Looks through gadget and outputs the stack chain AFTER first instruction'''
+  def stack(gadget):
+    chain = []
+    for i in gadget.instructions[1:]:
+      if i.type=='POP':
+        chain.append("dd 0xdeadbeef\t;{1}".format(i.instruction))
+    return chain

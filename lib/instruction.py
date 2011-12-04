@@ -5,7 +5,7 @@ class Instruction:
     '''
     def __init__(self, hexcode, offset, instruction):
         self.hexcode = hexcode
-        self.offset = offset
+        self.offset = offset + 0x08048000
         self.instruction = instruction
         instruction = instruction.split(" ")
         self.type=self.type=instruction[0]
