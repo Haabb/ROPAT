@@ -72,11 +72,6 @@ class GadgetCollector:
                 print "+",imme
 
             #=================================
-            #           null test
-            #=================================            
-            assembler.null(test_reg)
-
-            #=================================
             #         movesTo test
             #=================================
             print assembler.movesTo(test_reg)
@@ -86,6 +81,11 @@ class GadgetCollector:
             #=================================
             #for x in assembler.store(test_reg, '/bin//sh', '0xbffff0ff'):
             #    print x
+
+            #=================================
+            #         load test
+            #=================================
+            print assembler.load(test_reg, 13)
 
 
                     

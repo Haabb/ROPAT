@@ -1,16 +1,29 @@
 import itertools
+import sys
 
 class Assembler:
     
     def __init__(self, gadgets):
-        self.catalog = {'MOV':{},'POP':{},'SUB':{},'DEC':{},'INC':{},'ADD':{}, 'XOR':{}, 'NEG':{}}
+        self.catalog = {'MOV':{},'POP':{},'SUB':{},'DEC':{},'INC':{},'ADD':{}, 'XOR':{}, 'NEG':{}, 'XCHG':{}}
         self.init_catalog(gadgets)
         self.registers = ['EAX', 'EBX', 'ECX', 'EDX', 'EDI', 'ESI']        
 
-    def Load(self, register, immediate):
-        if immediate < 0:
-        elif immediate==0:
-        else:
+    def load(self, register, immediate):
+        gadgets=[]
+        if self.catalog['MOV'].has_key(register):
+            for key in self.catalog['MOV'][register].keys():
+                if key[:2]=='0x':
+                    gadgets.append( ( self.hex2signed(key), self.catalog['MOV'][register][key] ) )
+        
+        return gadgets
+
+
+    def hex2signed(self, s):
+        value = long(s, 16)
+        if value > sys.maxint:
+            value = value - 2L*sys.maxint - 2
+        assert -sys.maxint-1 <= value <= sys.maxint
+        return int(value)
 
     ''' Store data at memory and have register point at it. 
         Uses self._store, to store every 4 bytes.'''
@@ -83,6 +96,8 @@ class Assembler:
 
             if gadget.instructions[i].type=='POP' and i!=0:
                 stack.append('dd 0xdeadbeef\t; {0}'.format(gadget.instructions[i].instruction))
+            
+            # Also take care of ADD, ESP!!
 
         return stack
 
@@ -95,7 +110,13 @@ class Assembler:
             for r in self.catalog['MOV'][register].keys():
                 if r in self.registers and not r in chain:
                     chain.extend( self.movesTo( r, chain ) )
-            return list(set(chain))
+
+        if register in self.catalog['XCHG'].keys():
+            for r in self.catalog['XCHG'][register].keys():
+                if r in self.registers and not r in chain:
+                    chain.extend( self.movesTo( r, chain ) )
+        
+        return list(set(chain))
 
 
     def moveToFrom(self, reg_to, reg_from):
@@ -153,14 +174,12 @@ class Assembler:
  
     ''' Put all gadgets in catalog '''
     def init_catalog(self, gadgets):
-
         for g in gadgets:
             i = g.instructions[0]
-
             # Quaranteed dest and source types
-            if i.type=='MOV' or i.type=='SUB' or i.type=='ADD' or i.type=='XOR':
+            if i.type=='MOV' or i.type=='SUB' or i.type=='ADD' or i.type=='XOR' \
+                or i.type=='XCHG':
                 if i.dest in self.catalog[i.type].keys():
-
                     if i.source in self.catalog[i.type][i.dest].keys():
                         self.catalog[i.type][i.dest][i.source].append(g)
 
@@ -172,7 +191,6 @@ class Assembler:
 
             
             if i.type=='INC' or i.type=='DEC' or i.type=='POP' or i.type=='NEG':
-
                 if i.dest in self.catalog[i.type].keys():
                         self.catalog[i.type][i.dest].append(g)
 
@@ -185,4 +203,5 @@ class Assembler:
         for i in gadget.instructions[1:]:
             if i.type=='POP':
                 chain.append("dd 0xdeadbeef\t;{1}".format(i.instruction))
+
         return chain

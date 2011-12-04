@@ -34,8 +34,10 @@ class Gadget:
                     return False;
 
             # Check that instructions in gadget does not interfere with first
+            # or that ESP is not changed
             for i in self.instructions[1:]:
-                if i.dest==self.instructions[0].dest:
+                if i.dest==self.instructions[0].dest or \
+                   (i.dest=='ESP' and (i.type=='POP' or i.type=='MOV')):
                     return False
 
             return True
