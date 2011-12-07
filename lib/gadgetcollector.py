@@ -2,7 +2,9 @@ import distorm3
 from gadget import *
 from instruction import *
 from struct import *
+from syscall import *
 from assembler import *
+import hashlib
 
 class GadgetCollector:
     
@@ -15,7 +17,6 @@ class GadgetCollector:
     a "gadget-end" if found at index n, the gadget will be of length n.
     ''' 
     def extractGadgets(self, gadget_length, options):
-        # Read the code from the file
         #try:
             fp = open(self.file, 'rb')
             code = fp.read(1)
@@ -57,37 +58,16 @@ class GadgetCollector:
                 code_offset+=1  
                 fp.seek(code_offset)
                 code = fp.read(1) 
-
-            assembler = Assembler(self.gadgets)
             
-            test_reg = 'ECX'
+            assembler = Assembler(self.gadgets)
 
-            #=================================
-            #          add and sub test
-            #================================= 
-            for (imme, g) in assembler.sub(test_reg):
-                print "-",imme
+            syscall = Syscall(assembler)
 
-            for (imme, g) in assembler.add(test_reg):
-                print "+",imme
+            #syscall.test('EAX')
+            syscall.write("Hacking you!")            
+            syscall.execve('/bin//sh')
 
-            #=================================
-            #         movesTo test
-            #=================================
-            print assembler.movesTo(test_reg)
-
-            #=================================
-            #         store test
-            #=================================
-            #for x in assembler.store(test_reg, '/bin//sh', '0xbffff0ff'):
-            #    print x
-
-            #=================================
-            #         load test
-            #=================================
-            print assembler.load(test_reg, 13)
-
-
+            #syscall.exit()
                     
 
         #except Exception as e:

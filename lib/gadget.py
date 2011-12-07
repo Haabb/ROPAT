@@ -35,13 +35,39 @@ class Gadget:
 
             # Check that instructions in gadget does not interfere with first
             # or that ESP is not changed
-            for i in self.instructions[1:]:
+            for i in self.instructions[1:]: 
                 if i.dest==self.instructions[0].dest or \
-                   (i.dest=='ESP' and (i.type=='POP' or i.type=='MOV')):
+                    self.register_conflict(i.dest, self.instructions[0].dest) or \
+                   (i.dest=='ESP' and (i.type=='POP' or i.type=='MOV') or \
+                    'DWORD' in i.instruction or 'WORD' in i.instruction or \
+                    'BYTE' in i.instruction):
                     return False
 
+                if i.type=='MOV' or i.type=='ADD' or i.type=='SUB':
+                    if "0x" in i.dest:
+                        if int(i.dest.split('0x')[1][:-1], 16) > 200:
+                            return False
+
+                    if "0x" in i.source:
+                        if ']' in i.source:
+                            if int(i.source.split('0x')[1][:-1], 16) > 200:
+                                return False
+                        else:
+                            if int(i.source.split('0x')[1], 16) > 200:
+                                return False
             return True
 
+        return False
+
+    ''' Determains if registers conflict. Ex. mov [eax+4]... mov [eax+8] 
+        return True on conflict '''
+    def register_conflict(self, reg1, reg2):    
+        if reg1!=None and reg2!=None:
+            if '[' in reg1 and '[' in reg2:
+                if reg1[1:4]==reg2[1:4] and len(reg1)>5 and len(reg2)>5:
+                    if  int(reg1[5:-1], 16)-int(reg2[5:-1], 16)<128 or \
+                        int(reg1[5:-1], 16)-int(reg2[5:-1], 16)>-128:
+                        return True
         return False
 
 
