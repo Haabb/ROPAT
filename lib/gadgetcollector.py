@@ -3,20 +3,24 @@ from gadget import *
 from instruction import *
 from struct import *
 from syscall import *
+from assembler_re import *
 from assembler import *
 import hashlib
 
 class GadgetCollector:
     
-    def __init__(self, file):
+    def __init__(self, file, length, bss, debug=False):
         self.file = file
+        self.length=length
+        self.bss=bss
         self.gadgets = []
+        self.debug=debug
     '''
     Find gadgets in file specified at init.
     block_length defines the number of bytes the gadget can consist of. If
     a "gadget-end" if found at index n, the gadget will be of length n.
     ''' 
-    def extractGadgets(self, gadget_length, options):
+    def extractGadgets(self, options):
         #try:
             fp = open(self.file, 'rb')
             code = fp.read(1)
@@ -41,7 +45,7 @@ class GadgetCollector:
                         for (offset, size, instruction, hexdump) in iterable:
                             inst = Instruction(hexdump, offset, instruction)
                             
-                            if length > gadget_length or not gadget.accepted_instruction(inst):                                
+                            if length > self.length or not gadget.accepted_instruction(inst):                                
                                 break
                             # Add instructions to gadget
                             gadget.add(inst)
@@ -50,7 +54,7 @@ class GadgetCollector:
                         if gadget.check():
                             self.gadgets.append(gadget)
                         
-                        if length > gadget_length:
+                        if length > self.length:
                                 break
 
                         index+=1
@@ -59,15 +63,16 @@ class GadgetCollector:
                 fp.seek(code_offset)
                 code = fp.read(1) 
             
-            assembler = Assembler(self.gadgets)
+            assembler_ = Assembler_revisited(self.gadgets, self.bss)
+            #assembler = Assembler(self.gadgets)
 
-            syscall = Syscall(assembler)
+            if (self.debug==True):
+                print assembler.catalog
 
-            #syscall.test('EAX')
-            syscall.write("Hacking you!")            
-            syscall.execve('/bin//sh')
+            #syscall = Syscall(assembler, self.bss)
 
-            #syscall.exit()
+            #syscall.execve('/bin//sh')
+
                     
 
         #except Exception as e:

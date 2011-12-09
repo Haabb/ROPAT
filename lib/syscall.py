@@ -1,8 +1,8 @@
 class Syscall:
 
-    def __init__(self, assembler):
+    def __init__(self, assembler, bss):
         self.assembler = assembler
-        self.memorylocation='0x080c6740'
+        self.memorylocation="0x%X" % ( int(bss, 16) + 64 )
 
     def execve(self, program, argv=None, envp=None):
         # EAX = 11
@@ -14,7 +14,7 @@ class Syscall:
                         'ECX': self.assembler.load('ECX', 0),\
                         'EDX': self.assembler.load('EDX', 0) }
 
-        self.memorylocation="0x0%X" % ( int(self.memorylocation, 16) + (len(program) + (128-len(program) ) ) )
+        self.memorylocation="0x%X" % ( int(self.memorylocation, 16) + (len(program) + (128-len(program) ) ) )
         self.solve(chains)
 
     def write(self, string):
@@ -28,7 +28,11 @@ class Syscall:
                             'ECX': self.assembler.store('ECX', string, self.memorylocation),\
                             'EDX': self.assembler.load('EDX', len(string)) }
 
-            self.memorylocation="0x0%X" % ( int(self.memorylocation, 16) + (len(string) + (128-len(string) ) ) )
+            #print "EAX", chains['EAX']
+            #print "EBX", chains['EBX']
+            #print "ECX", chains['ECX']
+            #print "EDX", chains['EDX']
+            self.memorylocation="0x%X" % ( int(self.memorylocation, 16) + (len(string) + (128-len(string) ) ) )
             self.solve(chains)
 
     def exit(self):
@@ -36,10 +40,10 @@ class Syscall:
         # EBX = 0
         # ECX = 0
         # EDX = 0
-        chains = {      'EAX': self.assembler.load('EAX', 1),\
-                        'EBX': self.assembler.load('EAX', 0),\
-                        'ECX': self.assembler.load('ECX', 0),\
-                        'EDX': self.assembler.load('EDX', 0) }
+        chains = {      'EAX': self.assembler.load('EAX', 1),
+                        'EBX': self.assembler.load('EBX', 0),
+                        'ECX': self.assembler.load('ECX', 0),  
+                        'EDX': self.assembler.load('EDX', 0) } 
 
         self.solve(chains)
         
@@ -60,10 +64,20 @@ class Syscall:
         while conflict:
             change=False
             for x in range(len(registers)-1):
-                sides = self.assembler.stackized_sideeffects( chains[registers[x+1]] )
-                if registers[x+1] in sides:
-                    sides.remove(registers[x+1])
-                if registers[x] in sides:
+                sides_x = self.assembler.stackized_sideeffects( chains[registers[x]] )
+                sides_x1 = self.assembler.stackized_sideeffects( chains[registers[x+1]] )
+                if registers[x+1] in sides_x1:
+                    sides_x1.remove(registers[x+1])
+
+                if registers[x] in sides_x:
+                    sides_x.remove(registers[x])
+
+                if registers[x] in sides_x1 and registers[x+1] in sides_x:
+                    print "Error: {0} chain and {1} chain has conflicts that " \
+                            "could not be resolved".format(registers[x], registers[x+1])
+                    change=False
+
+                elif registers[x] in sides_x1:
                     tmp = registers[x+1]
                     registers.remove(tmp)
                     registers.insert(x, tmp)

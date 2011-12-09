@@ -4,13 +4,8 @@ class Gadget:
         self.instructions = []
         self.dest = []
         self.source = []
-
-        accepted_instr = ['RET','MOV','CALL','POP','PUSH', 'SUB', 'ADD', 
-                          'INC', 'DEC', 'INT', 'XOR', 'CDQ', 'XCHG' ]
-
-        tails = ['RET','CALL', 'JMP']
         
-        registers = ['EAX', 'AX', 'AL', 'AH', 'EBX', 'BX', 'BL', 'BH', 'ECX', 
+        self.registers = ['EAX', 'AX', 'AL', 'AH', 'EBX', 'BX', 'BL', 'BH', 'ECX', 
                      'EDX', 'EDI', 'ESI', 'EIP', 'ESP', 'EBP']
 
 
@@ -18,7 +13,7 @@ class Gadget:
     ''' Is an instruction is accepted in gadgets '''
     def accepted_instruction(self,instruction):
         accepted_instr = ['RET','MOV' ,'POP','PUSH', 'SUB', 'ADD', 
-                          'INC', 'DEC', 'INT', 'XOR', 'CDQ', 'XCHG', 'NEG' ]
+                          'INC', 'DEC', 'INT', 'XOR', 'CDQ', 'XCHG', 'NEG', 'JB' ]
         return instruction.type in accepted_instr
        
 
@@ -33,6 +28,12 @@ class Gadget:
                 if i.type=='RET':
                     return False;
 
+            if self.instructions[0].type!='MOV':
+                    if self.instructions[0].dest!=None and '[' in self.instructions[0].dest:
+                        return False
+                    if self.instructions[0].source!=None and '[' in self.instructions[0].source:
+                        return False
+
             # Check that instructions in gadget does not interfere with first
             # or that ESP is not changed
             for i in self.instructions[1:]: 
@@ -43,18 +44,11 @@ class Gadget:
                     'BYTE' in i.instruction):
                     return False
 
-                if i.type=='MOV' or i.type=='ADD' or i.type=='SUB':
-                    if "0x" in i.dest:
-                        if int(i.dest.split('0x')[1][:-1], 16) > 200:
-                            return False
+                if i.dest!=None and '[' in i.dest:
+                    return False
+                if i.source!=None and '[' in i.source:
+                    return False
 
-                    if "0x" in i.source:
-                        if ']' in i.source:
-                            if int(i.source.split('0x')[1][:-1], 16) > 200:
-                                return False
-                        else:
-                            if int(i.source.split('0x')[1], 16) > 200:
-                                return False
             return True
 
         return False
@@ -65,7 +59,10 @@ class Gadget:
         if reg1!=None and reg2!=None:
             if '[' in reg1 and '[' in reg2:
                 if reg1[1:4]==reg2[1:4] and len(reg1)>5 and len(reg2)>5:
-                    if  int(reg1[5:-1], 16)-int(reg2[5:-1], 16)<128 or \
+                    for reg in self.registers:
+                        if reg in reg2[5:-1]:
+                            return True
+                    if  int(reg1 [5:-1], 16)-int(reg2[5:-1], 16)<128 or \
                         int(reg1[5:-1], 16)-int(reg2[5:-1], 16)>-128:
                         return True
         return False
@@ -74,7 +71,7 @@ class Gadget:
     ''' Output contents of a gadget '''
     def output(self):
         if len(self.instructions)>0:
-            output = "\ndd 0x%.8x \t;" % ( self.instructions[0].offset )
+            output = "\n;dd 0x%.8x \t;" % ( self.instructions[0].offset )
             for ins in self.instructions:
                 output = "{0} {1} #".format(output, ins.instruction)
             return output
