@@ -71,9 +71,9 @@ class Gadget:
     ''' Output contents of a gadget '''
     def output(self):
         if len(self.instructions)>0:
-            output = "\n;dd 0x%.8x \t;" % ( self.instructions[0].offset )
+            output = "\n;dd 0x%.8x (0x%.8x)\t;" % ( self.instructions[0].offset, self.instructions[0].offset-0x08048000)
             for ins in self.instructions:
-                output = "{0} {1} #".format(output, ins.instruction)
+                output = "{0} {1} ({2})#".format(output, ins.instruction, ins.hexcode)
             return output
 
     def bad_offset(self):
