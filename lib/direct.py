@@ -1,7 +1,7 @@
 import itertools
 import sys
 
-class Assembler:
+class Direct:
     
     def __init__(self, gadgets):
         self.catalog = {'MOV':{},'POP':{},'SUB':{},'DEC':{},'INC':{},'ADD':{}, 'XOR':{}, 'NEG':{}, 'XCHG':{}, 'INT':{}}

@@ -3,14 +3,15 @@ from gadget import *
 from instruction import *
 from struct import *
 from syscall import *
-from assembler_re import *
-from assembler import *
+from stage import *
+from direct import *
 import hashlib
 
 class GadgetCollector:
     
-    def __init__(self, file, length, bss, debug=False):
+    def __init__(self, file, type, length, bss, debug=False):
         self.file = file
+        self.type = type
         self.length=length
         self.bss=bss
         self.gadgets = []
@@ -63,16 +64,18 @@ class GadgetCollector:
                 fp.seek(code_offset)
                 code = fp.read(1) 
             
-            assembler_ = Assembler_revisited(self.gadgets, self.bss)
-            #assembler = Assembler(self.gadgets)
-
+            if self.type=='direct':
+                assembler = Direct(self.gadgets)
+                
+                syscall = Syscall(assembler, self.bss)
+                syscall.execve('/bin//sh')
+                
+            elif self.type=='stage':
+                print "Stage"
+                assembler = Stage(self.gadgets, self.bss)
+                
             if (self.debug==True):
                 print assembler.catalog
-
-            #syscall = Syscall(assembler, self.bss)
-
-            #syscall.execve('/bin//sh')
-
                     
 
         #except Exception as e:

