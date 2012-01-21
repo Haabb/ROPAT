@@ -46,6 +46,7 @@
 #
 import itertools
 import sys
+from stack import *
 
 class Stage:
 
@@ -57,7 +58,7 @@ class Stage:
     
         self.catalog = {'MOV':{},'POP':{},'SUB':{},'DEC':{},'INC':{},'ADD':{}, 'XOR':{}, 'NEG':{}, 'XCHG':{}, 'INT':{}}
 
-        self.realstack = []
+        self.realstack = Stack()
 
         self.init_catalog(gadgets)
 
@@ -87,13 +88,16 @@ class Stage:
         ( val, chain ) = self.store_data('0xdeadbeef', True)
         self.realstack.extend( chain )
         if self.catalog['POP'].has_key('EBP'):
-            self.realstack.extend ( self.stackize( self.suitableGadget( self.catalog['POP']['EBP'], [] ), "0x%X" % (int(self.memory_stack, 16) + 4) ) )
+            self.realstack.add ( self.suitableGadget( self.catalog['POP']['EBP'], [] ), "0x%X" % (int(self.memory_stack, 16) + 4) )
         
         if self.catalog['MOV'].has_key('ESP') and self.catalog['MOV']['ESP'].has_key('EBP'):
-            self.realstack.extend ( self.stackize( self.suitableGadget( self.catalog['MOV']['ESP']['EBP'], [] ) ) )
+            self.realstack.add ( self.suitableGadget( self.catalog['MOV']['ESP']['EBP'], [] ) )
             
 
-        for x in self.realstack:
+        for x in self.realstack.rop:
+            print x
+
+        for x in self.realstack.debug:
             print x
 
 
@@ -103,7 +107,7 @@ class Stage:
         POP r, DATA
         MOV [register], r '''
     def store_data(self, data, stack=False):
-        chain = []
+        chain = Stack()
 
         if stack==True:
             memory=self.memory_stack
@@ -128,13 +132,13 @@ class Stage:
                             if r in self.catalog['POP'].keys(): 
 
                                 # Popping memory address - register=address
-                                chain.extend( self.stackize( self.suitableGadget(self.catalog['POP'][register], [r]), memory ) )
+                                chain.add( self.suitableGadget(self.catalog['POP'][register], [r]), memory )
 
                                 # Popping value - r=value
-                                chain.extend( self.stackize( self.suitableGadget(self.catalog['POP'][r], [register]), data ) )
+                                chain.add( self.suitableGadget(self.catalog['POP'][r], [register]), data )
 
                                 # MOV [register], r
-                                chain.extend( self.stackize( self.catalog['MOV'][reg][r][0] ) )
+                                chain.add( self.catalog['MOV'][reg][r][0] ) 
 
                                 if stack==True:
                                     self.memory_stack="0x%X" % (int(self.memory_stack, 16) - 4)
@@ -150,7 +154,7 @@ class Stage:
     ''' Create rob chain for real stack, to put immediate value on fake stack.
         Starts by putting immediate in a register that can be loaded into an address'''
     def store_stack(self, immediate):
-            chain = []
+            chain = Stack()
             memory=self.memory_stack
             for register in self.registers:
                 for reg in self.catalog['MOV'].keys():
@@ -169,18 +173,18 @@ class Stage:
                                 if r in self.catalog['POP'].keys() and self.catalog['INC'].has_key(r):
 
                                     # Popping value - r=value
-                                    chain.extend( self.stackize( self.suitableGadget(self.catalog['POP'][r], [register]), '0xFFFFFFFF' ) )
+                                    chain.add( self.suitableGadget(self.catalog['POP'][r], [register]), '0xFFFFFFFF' )
                                     
                                     value=-1
                                     while immediate>value:
-                                        chain.extend( self.stackize( self.suitableGadget(self.catalog['INC'][r], [register]) ) )
+                                        chain.add( self.suitableGadget(self.catalog['INC'][r], [register]) ) 
                                         value+=1
         
                                     # Popping memory address - register=address
-                                    chain.extend( self.stackize( self.suitableGadget(self.catalog['POP'][register], [r]), memory ) )
+                                    chain.add( self.suitableGadget(self.catalog['POP'][register], [r]), memory )
 
                                     # MOV [register], r
-                                    chain.extend( self.stackize( self.catalog['MOV'][reg][r][0] ) )
+                                    chain.add( self.catalog['MOV'][reg][r][0] )
 
                                     self.memory_stack="0x%X" % (int(self.memory_stack, 16) - 4 )
 
@@ -268,7 +272,7 @@ class Stage:
         if register in self.catalog['MOV'].keys():
             for r in self.catalog['MOV'][register].keys():
                 if r in self.registers and not r in chain:
-                    chain.extend( self.movesTo( r, chain ) )
+                    chain.add( self.movesTo( r, chain ) )
 
         return list(set(chain))
 
@@ -296,37 +300,6 @@ class Stage:
                             break
 
         return chains
-
-    ''' Create the stack for a gadget 
-        args:
-        - gadget: the gadget to create a stack for
-        - value(optional): a value to fx. pop in the first instruction '''
-    def stackize(self, gadget, value=None):
-        stack=[]
-
-        for i in range( len(gadget.instructions) ):
-            if value!=None and i==1:
-                if value[0:2]=='0x':
-                    stack.append( "dd {0}".format(value) )
-
-                else:
-                    stack.append( "dd '{0}'".format(value) )
-
-            if i==0:
-                stack.append("\ndd 0x%.8x   ; %s" % ( gadget.instructions[i].offset, gadget.instructions[i].instruction ) )
-
-            elif gadget.instructions[i].type=='POP':
-                stack.append('dd 0xdeadbeef   ; {0}'.format(gadget.instructions[i].instruction))
-            
-            elif gadget.instructions[i].type=='ADD' and gadget.instructions[i].dest=='ESP':
-                val = int(gadget.instructions[i].source, 16)
-                while val != 0:
-                    stack.append('dd 0xdeadbeef   ; {0}'.format(gadget.instructions[i].instruction))
-                    val-=4
-            else:
-                stack.append('                ; {0}'.format(gadget.instructions[i].instruction))
-
-        return stack
 
     ''' Put all gadgets in catalog '''
     def init_catalog(self, gadgets):

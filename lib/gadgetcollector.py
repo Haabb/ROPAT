@@ -2,17 +2,14 @@ import distorm3
 from gadget import *
 from instruction import *
 from struct import *
-from syscall import *
-from stage import *
-from direct import *
+from exploit import *
 import hashlib
 
 class GadgetCollector:
     
-    def __init__(self, file, type, length, bss, debug=False):
+    def __init__(self, file, bss, debug):
         self.file = file
-        self.type = type
-        self.length=length
+        self.length=6
         self.bss=bss
         self.gadgets = []
         self.debug=debug
@@ -23,7 +20,7 @@ class GadgetCollector:
     ''' 
     def extractGadgets(self, options):
         #try:
-            fp = open(self.file, 'rb')
+            fp = self.file
             code = fp.read(1)
             code_offset = 0
             
@@ -63,20 +60,18 @@ class GadgetCollector:
                 code_offset+=1  
                 fp.seek(code_offset)
                 code = fp.read(1) 
-            
-            if self.type=='direct':
-                assembler = Direct(self.gadgets)
-                
-                syscall = Syscall(assembler, self.bss)
-                syscall.execve('/bin//sh')
-                
-            elif self.type=='stage':
-                print "Stage"
-                assembler = Stage(self.gadgets, self.bss)
-                
-            if (self.debug==True):
-                print assembler.catalog
-                    
 
-        #except Exception as e:
-        #    print ('error reading file %s: %s' % (self.file, e))
+    def search(self, argv):
+        exploit = Exploit(self.bss, self.gadgets)
+        argv = argv.split(',')
+        for n in range( len(argv) ):
+            if argv[n]=="NULL":
+                argv[n]=None
+        
+        exploit.execve(argv[0], argv)
+        
+        
+        print exploit.direct.chain.rop('\\x')
+
+        if (self.debug):
+            exploit.direct.chain.debug()
